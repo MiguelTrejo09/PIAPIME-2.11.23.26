@@ -5,3 +5,15 @@ scipy>=1.10.0
 pandas>=2.0.0
 openpyxl>=3.1.0
 rdkit>=2023.9.1
+
+# --- Acoplamiento Molecular (opcional) ---------------------------------
+# meeko se usa para preparar ligandos en formato PDBQT a partir de un
+# confórmero 3D generado con RDKit. Es opcional: si no está instalado, el
+# panel de Acoplamiento Molecular muestra un mensaje de error claro en vez
+# de fallar.
+meeko>=0.5.0
+# NOTA: el binario de AutoDock Vina (el "solver" de docking en sí) NO se
+# distribuye como paquete pip universal/multiplataforma. Debe instalarse
+# por separado (p. ej. descargando el binario oficial de AutoDock Vina o
+# compilándolo) y debe quedar disponible en el PATH del sistema, o bien
+# se puede indicar su ruta completa manualmente en el panel de la UI.

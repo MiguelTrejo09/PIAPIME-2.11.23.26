@@ -18,6 +18,8 @@ from piapime.ui.results_panel import ResultsPanel
 from piapime.ui.model_config_panel import ModelConfigPanel
 from piapime.ui.pkpd_panel import PKPDPanel
 from piapime.ui.admet_panel import ADMETPanel
+from piapime.ui.docking_panel import DockingPanel
+from piapime.ui.mechanism_panel import MechanismPanel
 from piapime.ui.style import DARK_STYLESHEET, LIGHT_STYLESHEET
 from piapime.utils.io_utils import export_results_csv, export_results_excel
 
@@ -271,6 +273,12 @@ class MainWindow(QMainWindow):
 
         self._admet_panel = ADMETPanel()
         self._main_tabs.addTab(self._admet_panel, "ADMET")
+
+        self._docking_panel = DockingPanel()
+        self._main_tabs.addTab(self._docking_panel, "Acoplamiento Molecular")
+
+        self._mechanism_panel = MechanismPanel()
+        self._main_tabs.addTab(self._mechanism_panel, "Mecanismo de Acción")
 
         self._main_tabs.currentChanged.connect(self._on_main_tab_changed)
 
@@ -681,6 +689,16 @@ class MainWindow(QMainWindow):
             "<p><b>ADMET:</b> descriptores fisicoquímicos offline basados "
             "en RDKit (LogP, TPSA, reglas de Lipinski/Veber/Egan), sin "
             "conexión a internet ni modelos de aprendizaje automático.</p>"
+            "<p><b>Acoplamiento Molecular:</b> preparación de ligandos a "
+            "partir de SMILES (RDKit + meeko) y ejecución de AutoDock Vina "
+            "(binario externo, instalado por el usuario) para acoplamiento "
+            "receptor-ligando, con visualización 3D opcional mediante "
+            "py3Dmol cuando QtWebEngine está disponible.</p>"
+            "<p><b>Mecanismo de Acción:</b> diagramas didácticos offline de "
+            "vías clásicas de señalización farmacológica (GPCR, canales "
+            "iónicos, receptores nucleares, tirosina cinasas, JAK-STAT, "
+            "NO-GMPc, inhibición enzimática), sin conexión a internet ni "
+            "inteligencia artificial generativa.</p>"
             "<p><i>UNAM FESC · Área de Farmacología</i></p>"
         )
 
