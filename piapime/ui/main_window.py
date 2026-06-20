@@ -16,6 +16,8 @@ from piapime.ui.data_panel import DataPanel
 from piapime.ui.plot_panel import PlotPanel
 from piapime.ui.results_panel import ResultsPanel
 from piapime.ui.model_config_panel import ModelConfigPanel
+from piapime.ui.pkpd_panel import PKPDPanel
+from piapime.ui.admet_panel import ADMETPanel
 from piapime.ui.style import DARK_STYLESHEET, LIGHT_STYLESHEET
 from piapime.utils.io_utils import export_results_csv, export_results_excel
 
@@ -194,6 +196,8 @@ class MainWindow(QMainWindow):
         self._dataset_data: dict[str, dict] = {}
 
         self._dark_mode = True
+        self._dataset_dock_was_visible = True
+        self._model_dock_was_visible = True
         self._setup_ui()
         self._setup_menus()
         self._setup_toolbar()
@@ -206,20 +210,19 @@ class MainWindow(QMainWindow):
     def _setup_ui(self) -> None:
         # ── Panel lateral de datasets ──────────────────────────────
         self._dataset_manager = _DatasetManagerWidget()
-        dataset_dock = QDockWidget("Datasets", self)
-        dataset_dock.setWidget(self._dataset_manager)
-        dataset_dock.setFeatures(
+        self._dataset_dock = QDockWidget("Datasets", self)
+        self._dataset_dock.setWidget(self._dataset_manager)
+        self._dataset_dock.setFeatures(
             QDockWidget.DockWidgetFeature.DockWidgetMovable |
             QDockWidget.DockWidgetFeature.DockWidgetFloatable
         )
-        dataset_dock.setMinimumWidth(160)
-        dataset_dock.setMaximumWidth(250)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dataset_dock)
+        self._dataset_dock.setMinimumWidth(160)
+        self._dataset_dock.setMaximumWidth(250)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._dataset_dock)
 
-        # ── Central: splitter horizontal ───────────────────────────
-        central = QWidget()
-        self.setCentralWidget(central)
-        main_layout = QVBoxLayout(central)
+        # ── Contenido del analizador dosis-respuesta: splitter horizontal ──
+        dose_response_widget = QWidget()
+        main_layout = QVBoxLayout(dose_response_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
@@ -248,20 +251,48 @@ class MainWindow(QMainWindow):
 
         # ── Dock inferior: configuración del modelo ─────────────────
         self._model_config = ModelConfigPanel()
-        model_dock = QDockWidget("Configuración del Modelo", self)
-        model_dock.setWidget(self._model_config)
-        model_dock.setFeatures(
+        self._model_dock = QDockWidget("Configuración del Modelo", self)
+        self._model_dock.setWidget(self._model_config)
+        self._model_dock.setFeatures(
             QDockWidget.DockWidgetFeature.DockWidgetMovable |
             QDockWidget.DockWidgetFeature.DockWidgetFloatable
         )
-        model_dock.setMaximumHeight(180)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, model_dock)
+        self._model_dock.setMaximumHeight(180)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._model_dock)
+
+        # ── Pestañas de nivel superior ───────────────────────────────
+        self._main_tabs = QTabWidget()
+        self.setCentralWidget(self._main_tabs)
+
+        self._main_tabs.addTab(dose_response_widget, "Curvas Dosis-Respuesta")
+
+        self._pkpd_panel = PKPDPanel()
+        self._main_tabs.addTab(self._pkpd_panel, "Farmacocinética / Farmacodinamia")
+
+        self._admet_panel = ADMETPanel()
+        self._main_tabs.addTab(self._admet_panel, "ADMET")
+
+        self._main_tabs.currentChanged.connect(self._on_main_tab_changed)
 
         # ── Status bar ──────────────────────────────────────────────
         self._status_label = QLabel("Listo")
         self.statusBar().addWidget(self._status_label)
         self._progress_label = QLabel("")
         self.statusBar().addPermanentWidget(self._progress_label)
+
+    # ------------------------------------------------------------------
+    # Cambio de pestaña principal: visibilidad de docks
+    # ------------------------------------------------------------------
+
+    def _on_main_tab_changed(self, index: int) -> None:
+        if index == 0:
+            self._dataset_dock.setVisible(self._dataset_dock_was_visible)
+            self._model_dock.setVisible(self._model_dock_was_visible)
+        else:
+            self._dataset_dock_was_visible = self._dataset_dock.isVisible()
+            self._model_dock_was_visible = self._model_dock.isVisible()
+            self._dataset_dock.setVisible(False)
+            self._model_dock.setVisible(False)
 
     # ------------------------------------------------------------------
     # Menús
@@ -352,6 +383,10 @@ class MainWindow(QMainWindow):
         act_models = QAction("Descripción de Modelos...", self)
         act_models.triggered.connect(self._show_models_info)
         help_menu.addAction(act_models)
+
+        act_pkpd = QAction("Fórmulas Farmacocinéticas...", self)
+        act_pkpd.triggered.connect(self._show_pkpd_info)
+        help_menu.addAction(act_pkpd)
 
     # ------------------------------------------------------------------
     # Barra de herramientas
@@ -639,6 +674,13 @@ class MainWindow(QMainWindow):
             "<p>Desarrollado para análisis farmacológico y toxicológico.</p>"
             "<p>Soporta modelos 4PL, 3PL, 2PL y Ecuación de Hill con "
             "intervalos de confianza bootstrap.</p>"
+            "<p><b>Farmacocinética / Farmacodinamia:</b> simulación de "
+            "modelos de 1, 2 y 3 compartimentos, modelos PD (Emax, Hill, "
+            "inhibición fraccional) y análisis de órgano aislado con "
+            "regresión de Schild (pA2/pD2/KB).</p>"
+            "<p><b>ADMET:</b> descriptores fisicoquímicos offline basados "
+            "en RDKit (LogP, TPSA, reglas de Lipinski/Veber/Egan), sin "
+            "conexión a internet ni modelos de aprendizaje automático.</p>"
             "<p><i>UNAM FESC · Área de Farmacología</i></p>"
         )
 
@@ -662,3 +704,41 @@ class MainWindow(QMainWindow):
             "<b>HillSlope:</b> Coeficiente de Hill (pendiente de la curva sigmoidea).</p>"
         )
         QMessageBox.information(self, "Descripción de Modelos", info)
+
+    def _show_pkpd_info(self) -> None:
+        info = (
+            "<h3>Fórmulas de Farmacocinética / Farmacodinamia</h3>"
+            "<p><b>1 compartimento — IV bolo:</b><br>"
+            "C(t) = (Dosis/Vd) · e^(−Ke·t)</p>"
+            "<p><b>1 compartimento — IV infusión:</b><br>"
+            "Durante: C(t) = (R0/(Vd·Ke)) · (1 − e^(−Ke·t))<br>"
+            "Después de Tinf: C(t) = C(Tinf) · e^(−Ke·(t−Tinf))</p>"
+            "<p><b>1 compartimento — Oral/extravascular:</b><br>"
+            "C(t) = (F·Dosis·Ka)/(Vd·(Ka−Ke)) · (e^(−Ke·t) − e^(−Ka·t))<br>"
+            "Caso límite Ka=Ke (flip-flop): C(t) = (F·Dosis·Ka/Vd)·t·e^(−Ka·t)</p>"
+            "<p><b>Multidosis:</b> superposición de curvas de dosis única "
+            "desplazadas por k·tau, para k=0..n−1 (solo t ≥ k·tau).</p>"
+            "<p><b>Parámetros derivados:</b><br>"
+            "t½ = ln(2)/Ke · Cl = Ke·Vd · AUC = trapezoidal (numérica) o "
+            "F·Dosis/Cl (analítica) · Css_avg = F·Dosis/(Cl·tau)</p>"
+            "<hr>"
+            "<p><b>2 compartimentos (IV bolo):</b><br>"
+            "C(t) = A·e^(−alpha·t) + B·e^(−beta·t)<br>"
+            "alpha+beta = k10+k12+k21 · alpha·beta = k10·k21<br>"
+            "A = (Dosis/Vc)·(alpha−k21)/(alpha−beta) · "
+            "B = (Dosis/Vc)·(k21−beta)/(alpha−beta)</p>"
+            "<p><b>3 compartimentos (IV bolo):</b><br>"
+            "C(t) = A·e^(−alpha·t) + B·e^(−beta·t) + C·e^(−gamma·t)</p>"
+            "<hr>"
+            "<p><b>Modelos PD:</b><br>"
+            "Emax: E = Emax·C/(EC50+C) &nbsp; · &nbsp; "
+            "Hill: E = Emax·C^n/(EC50^n+C^n) &nbsp; · &nbsp; "
+            "Inhibición: I = Imax·C/(IC50+C)</p>"
+            "<p><b>Órgano aislado / Schild:</b><br>"
+            "DR = 1 + [B]/KB · curva desplazada: "
+            "E = Emax·A^n/((EC50·DR)^n+A^n)<br>"
+            "Regresión: log(DR−1) vs log[B] → pendiente, pA2 = −intercepto/pendiente, "
+            "KB = 10^(−pA2)<br>"
+            "pD2 = −log10(EC50) (potencia del agonista solo)</p>"
+        )
+        QMessageBox.information(self, "Fórmulas Farmacocinéticas / Farmacodinámicas", info)
