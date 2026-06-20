@@ -267,6 +267,7 @@ class _PKSubTab(QWidget):
         is_multi = route in ("Multidosis Oral", "Multidosis IV Bolo")
 
         for sb, visible in [
+            (self._sb_dose, not is_infusion),
             (self._sb_ka, is_oral), (self._sb_f, is_oral),
             (self._sb_r0, is_infusion), (self._sb_tinf, is_infusion),
             (self._sb_tau, is_multi), (self._sb_ndoses, is_multi),
@@ -350,8 +351,12 @@ class _PKSubTab(QWidget):
                                    dose=dose, vd=vd, ke=ke)
             route_key = "multidosis_iv_bolo"
 
+        # Para infusión IV, la dosis total administrada es R0*Tinf, no el
+        # campo "Dosis" (que solo aplica a bolo/oral/multidosis).
+        dose_for_auc = r0 * tinf if route_key == "infusion" else dose
+
         result = pk.compute_pk_result(
-            t, c, dose, vd, ke, route_key, f=f,
+            t, c, dose_for_auc, vd, ke, route_key, f=f,
             ka=ka if route_key in ("oral", "multidosis_oral") else None,
             tau=tau if "multidosis" in route_key else None,
             n_doses=n_doses if "multidosis" in route_key else None,
